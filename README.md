@@ -1,0 +1,3 @@
+# Depthwise Separable CNN Audio Processing
+
+This project implements a compact and efficient keyword spotting system using a Depthwise Separable Convolutional Neural Network (DS-CNN). The workflow includes audio preprocessing, MFCC feature extraction, and model training for classifying short audio commands such as "on", "off", and background noise. Designed for resource-constrained environments, the pipeline leverages modern deep learning techniques to achieve robust performance with minimal computational overhead. The codebase is focused on training and testing the model in Python, making it suitable for research, prototyping, and deployment in software applications.

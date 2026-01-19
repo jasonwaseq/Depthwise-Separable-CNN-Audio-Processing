@@ -1,0 +1,19 @@
+# Ignore all audio data folders and files
+Split_Audio/
+Processed_Audio/
+_background_noise_/
+~/
+venv/
+*.wav
+*.mp3
+*.flac
+artifacts_kws_ultratiny_int8/
+KWS_MFCC32_UltraTiny/
+__pycache__/
+# Ignore model files
+*.h5
+*.tflite
+# Ignore output files
+out.txt
+# VS Code settings
+.vscode/
