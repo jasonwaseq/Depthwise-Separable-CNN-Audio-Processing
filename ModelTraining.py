@@ -18,7 +18,7 @@ keras = tf.keras
 from tensorflow.keras import layers
 
 # ---------- Constants ----------
-CLASSES = ["on", "off", "_background_noise_"]  # Updated to 3 classes
+CLASSES = ["on", "off", "_background_noise_", "unknown"]  # 4 classes for complete KWS
 N_CLASSES = len(CLASSES)
 N_MFCC = 13
 INPUT_SHAPE = (66, 1, 13)  # NHWC (time, 1, mfcc)

@@ -25,13 +25,26 @@ FMAX = SR // 2
 # Expected audio length (1 second at 16kHz = 16000 samples)
 EXPECTED_SAMPLES = 16000
 
-# Target categories
+# Target categories for model output
 TARGET_CATEGORIES = ["on", "off", "_background_noise_", "unknown"]
+
+# Words to use as explicit target keywords
+TARGET_KEYWORDS = ["on", "off"]
+
+# Folders to treat as background noise/silence
+NOISE_FOLDERS = ["_background_noise_", "silence"]
+
+# Words that will be classified as "unknown" (non-keyword speech)
+# Any folder not in TARGET_KEYWORDS and not in NOISE_FOLDERS will be treated as unknown
+UNKNOWN_WORD_FOLDERS = ["backward", "cat", "down", "five", "forward", "four", 
+                         "learn", "right", "six", "stop", "up", "visual", "zero"]
 
 print("MFCC Feature Extractor")
 print(f"Input:  {PROCESSED_AUDIO_ROOT}")
 print(f"Output: {FEAT_OUTPUT_ROOT}")
 print(f"Target categories: {TARGET_CATEGORIES}")
+print(f"Target keywords: {TARGET_KEYWORDS}")
+print(f"Unknown words: {UNKNOWN_WORD_FOLDERS}")
 print(f"MFCC config: n_mfcc={N_MFCC}, sr={SR}, hop={HOP_LENGTH}")
 print()
 
@@ -110,41 +123,104 @@ def process_split(split_name):
     all_features = []
     stats = defaultdict(int)
 
-    # Process each category directory
-    for category in TARGET_CATEGORIES:
-        input_category_dir = input_split_dir / category
-        output_category_dir = output_split_dir / category
+    # Process target keywords (on, off)
+    for keyword in TARGET_KEYWORDS:
+        input_category_dir = input_split_dir / keyword
+        output_category_dir = output_split_dir / keyword
 
         if not input_category_dir.exists():
             print(f"    WARNING: {input_category_dir} not found, skipping")
             continue
 
-
         wav_files = list(glob(str(input_category_dir / "*.wav")))
-        print(f"    [DEBUG] {category} in {split_name}: found {len(wav_files)} wav files in {input_category_dir}")
+        print(f"    [DEBUG] {keyword} in {split_name}: found {len(wav_files)} wav files")
         if not wav_files:
             print(f"    WARNING: No .wav files in {input_category_dir}")
             continue
 
-        print(f"  Processing {category}: {len(wav_files)} files")
+        print(f"  Processing {keyword}: {len(wav_files)} files")
 
         processed = 0
         for wav_file in sorted(wav_files):
             mfcc = extract_mfcc_features(wav_file)
             if mfcc is not None:
-                # Save feature file
                 base_name = Path(wav_file).stem
                 output_path = output_category_dir / f"{base_name}.npy"
                 np.save(output_path, mfcc)
-
                 all_features.append(mfcc)
                 processed += 1
 
             if processed % 100 == 0 and processed > 0:
                 print(f"    Processed {processed}/{len(wav_files)} files...")
 
-        stats[category] = processed
-        print(f"    ✓ {category}: {processed} features saved")
+        stats[keyword] = processed
+        print(f"    ✓ {keyword}: {processed} features saved")
+
+    # Process noise/silence folders
+    for noise_folder in NOISE_FOLDERS:
+        input_category_dir = input_split_dir / noise_folder
+        output_category_dir = output_split_dir / "_background_noise_"
+
+        if not input_category_dir.exists():
+            continue
+
+        wav_files = list(glob(str(input_category_dir / "*.wav")))
+        if not wav_files:
+            continue
+
+        print(f"  Processing {noise_folder} -> _background_noise_: {len(wav_files)} files")
+
+        processed = 0
+        for wav_file in sorted(wav_files):
+            mfcc = extract_mfcc_features(wav_file)
+            if mfcc is not None:
+                base_name = Path(wav_file).stem
+                # Prefix with original folder name to avoid conflicts
+                output_path = output_category_dir / f"{noise_folder}_{base_name}.npy"
+                np.save(output_path, mfcc)
+                all_features.append(mfcc)
+                processed += 1
+
+            if processed % 100 == 0 and processed > 0:
+                print(f"    Processed {processed}/{len(wav_files)} files...")
+
+        stats["_background_noise_"] = stats.get("_background_noise_", 0) + processed
+        print(f"    ✓ {noise_folder}: {processed} features saved to _background_noise_")
+
+    # Process unknown words (all other speech that's not on/off/noise)
+    output_unknown_dir = output_split_dir / "unknown"
+    total_unknown = 0
+    
+    for unknown_word in UNKNOWN_WORD_FOLDERS:
+        input_category_dir = input_split_dir / unknown_word
+
+        if not input_category_dir.exists():
+            continue
+
+        wav_files = list(glob(str(input_category_dir / "*.wav")))
+        if not wav_files:
+            continue
+
+        print(f"  Processing {unknown_word} -> unknown: {len(wav_files)} files")
+
+        processed = 0
+        for wav_file in sorted(wav_files):
+            mfcc = extract_mfcc_features(wav_file)
+            if mfcc is not None:
+                base_name = Path(wav_file).stem
+                # Prefix with original word to maintain uniqueness
+                output_path = output_unknown_dir / f"{unknown_word}_{base_name}.npy"
+                np.save(output_path, mfcc)
+                all_features.append(mfcc)
+                processed += 1
+
+            if processed % 100 == 0 and processed > 0:
+                print(f"    Processed {processed}/{len(wav_files)} files...")
+
+        total_unknown += processed
+        print(f"    ✓ {unknown_word}: {processed} features saved to unknown")
+
+    stats["unknown"] = total_unknown
 
     print(f"  {split_name} summary: {dict(stats)}")
     print(f"  Total features extracted: {sum(stats.values())}")
